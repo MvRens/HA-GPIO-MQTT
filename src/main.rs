@@ -2,7 +2,10 @@ mod config;
 mod gpio_watcher;
 
 use std::path::PathBuf;
+use std::thread;
+use std::time::Duration;
 use clap::Parser;
+use env_logger::Env;
 
 use config::Config;
 use gpio_watcher::GpioWatcher;
@@ -19,14 +22,38 @@ struct Args {
 
 fn main() 
 {
+    env_logger::Builder::from_env(Env::default().default_filter_or("info"))
+            .format_timestamp(None)
+            .init();
+    
     let args = Args::parse();
     let config = load_config(&args);
 
     println!("{:?}", config);
 
     //mqtt::mqtt_start(config);
-    let mut gpio_watcher = GpioWatcher::start(&config, pin_changed);
+    let mut gpio_watcher = GpioWatcher::start(&config);
 
+    // TODO monitor for signals to stop service
+
+    while match gpio_watcher.poll()
+    {
+        gpio_watcher::GpioPollResult::None =>
+        {
+            thread::sleep(Duration::from_millis(10));
+            true
+        },
+
+        gpio_watcher::GpioPollResult::PinChanged(pin, level) =>
+        {
+            println!("Pin {} changed to {:?}", pin, level);
+            // TODO send to MQTT module
+
+            true
+        },
+
+        gpio_watcher::GpioPollResult::Stopped => false
+    } {}
     // ...
 
     gpio_watcher.stop();
@@ -65,11 +92,4 @@ fn load_config(args: &Args) -> Config
             std::process::exit(1);
         }
     }
-}
-
-
-fn pin_changed(pin: u8, level: gpio_watcher::GpioPinLevel)
-{
-    println!("Pin {} changed to {:?}", pin, level);
-    // TODO send to MQTT module
 }

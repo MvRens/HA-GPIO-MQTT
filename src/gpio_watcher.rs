@@ -1,4 +1,7 @@
-use std::{collections::HashMap, sync::mpsc::{channel, Sender, TryRecvError}, thread::{self, JoinHandle}, time::Duration};
+use std::collections::HashMap;
+use std::sync::mpsc::{channel, Sender, Receiver, TryRecvError};
+use std::thread;
+use std::time::Duration;
 
 use rppal::gpio::{Gpio, InputPin};
 
@@ -7,14 +10,29 @@ use crate::config::{Config, ConfigGpioPull};
 
 pub struct GpioWatcher
 {
-    worker: Option<JoinHandle<()>>,
-    worker_sender: Sender<GpioControlMessage>
+    worker: Option<thread::JoinHandle<()>>,
+    control_sender: Sender<GpioControlMessage>,
+    status_receiver: Receiver<GpioStatusMessage>
+}
+
+
+pub enum GpioPollResult
+{
+    None,
+    PinChanged(u8, GpioPinLevel),
+    Stopped
 }
 
 
 enum GpioControlMessage
 {
     Stop
+}
+
+
+enum GpioStatusMessage
+{
+    PinChanged(u8, GpioPinLevel)
 }
 
 
@@ -51,7 +69,7 @@ pub enum GpioPinLevel
 
 impl GpioWatcher
 {
-    pub fn start(config: &Config, on_pin_changed: fn(u8, GpioPinLevel)) -> Self
+    pub fn start(config: &Config) -> Self
     {
         let mut pin_map: HashMap<u8, GpioPinInfo> = config.gpio.iter()
             .map(|io| (io.pin, GpioPinInfo 
@@ -67,13 +85,15 @@ impl GpioWatcher
             }))
             .collect();
 
-        let (worker_sender, worker_receiver) = channel();
+        let (control_sender, control_receiver) = channel();
+        let (status_sender, status_receiver) = channel();
 
-        let worker = thread::spawn(move ||  
+
+        let worker = Some(thread::spawn(move ||  
         {
             let Ok(gpio) = Gpio::new() else 
             {
-                // TODO logging
+                log::error!("Failed to initialize GPIO module");
                 return;
             };
 
@@ -95,17 +115,17 @@ impl GpioWatcher
                         match input_pin.set_interrupt(rppal::gpio::Trigger::Both)
                         {
                             Ok(_) => GpioPinState::Input(input_pin),
-                            Err(_) => 
+                            Err(e) => 
                             {
-                                // TODO logging
+                                log::error!("Failed to set interrupt for pin {}: {}", *pin, e);
                                 GpioPinState::Error()
                             }
                         }
                     },
 
-                    Err(_) => 
+                    Err(e) => 
                     {
-                        // TODO logging
+                        log::error!("Failed to acquire pin {}: {}", *pin, e);
                         GpioPinState::Error()
                     }
                 };
@@ -124,7 +144,7 @@ impl GpioWatcher
             #[allow(while_true)]
             while true
             {
-                match worker_receiver.try_recv()
+                match control_receiver.try_recv()
                 {
                     Ok(GpioControlMessage::Stop) |
                     Err(TryRecvError::Disconnected) =>
@@ -147,7 +167,11 @@ impl GpioWatcher
                             if let Some(pin_info) = pin_map.get(&number)
                             {
                                 let level = get_pin_level(level, pin_info.inverted);
-                                on_pin_changed(number, level);
+
+                                if let Err(e) = status_sender.send(GpioStatusMessage::PinChanged(number, level))
+                                {
+                                    log::error!("Failed to send status message: {}", e);
+                                }
                             }
                         },
 
@@ -155,21 +179,37 @@ impl GpioWatcher
                     }
                 }
             }
-        });
-
+        }));
 
         Self
         {
-            worker_sender,
-            worker: Some(worker)
+            worker,
+            control_sender,
+            status_receiver
+        }
+    }
+
+
+    pub fn poll(&self) -> GpioPollResult
+    {
+        match self.status_receiver.try_recv()
+        {
+            Ok(GpioStatusMessage::PinChanged(pin, level)) => GpioPollResult::PinChanged(pin, level),
+
+            Err(TryRecvError::Disconnected) =>
+            {
+                GpioPollResult::Stopped
+            },
+
+            _ => GpioPollResult::None
         }
     }
 
 
     pub fn stop(&mut self)
     {
-        self.worker_sender.send(GpioControlMessage::Stop).unwrap_or_default();
-        self.worker.take().map(JoinHandle::join);
+        self.control_sender.send(GpioControlMessage::Stop).unwrap_or_default();
+        self.worker.take().map(thread::JoinHandle::join);
     }
 }
 
