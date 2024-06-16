@@ -1,0 +1,12 @@
+mqtt:
+  hostname: 127.0.0.1
+  port: 1883
+  user: username
+  password: password
+device_name: raspberrypi
+client_id: raspberrypi
+gpio:
+  - entity_id: example_pir
+    name: Example PIR
+    pin: 4
+    inverted: true
