@@ -33,7 +33,25 @@ pub struct ConfigGpio
     pub entity_id: String,
     pub name: String,
     pub pin: u8,
-    pub inverted: bool
+    pub inverted: bool,
+
+    #[serde(default = "ConfigGpioPull::default")]
+    pub pull: ConfigGpioPull
+}
+
+
+#[derive(Deserialize, Debug)]
+pub enum ConfigGpioPull
+{
+    None,
+    Up,
+    Down
+}
+
+
+impl ConfigGpioPull
+{
+    fn default() -> Self { Self::None }
 }
 
 

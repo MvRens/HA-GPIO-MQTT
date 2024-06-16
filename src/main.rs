@@ -22,11 +22,15 @@ fn main()
     let args = Args::parse();
     let config = load_config(&args);
 
-    println!("MQTT hostname: {}", config.mqtt.hostname);
-    println!("MQTT port: {}", config.mqtt.port);
+    println!("{:?}", config);
 
     //mqtt::mqtt_start(config);
     let gpio = GpioHandler::start(&config);
+
+
+    // ...
+
+    gpio.stop();
 }
 
 

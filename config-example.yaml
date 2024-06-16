@@ -10,3 +10,4 @@ gpio:
     name: Example PIR
     pin: 4
     inverted: true
+    pull: None
