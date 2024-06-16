@@ -1,11 +1,11 @@
 mod config;
-mod gpio_handler;
+mod gpio_watcher;
 
 use std::path::PathBuf;
 use clap::Parser;
 
 use config::Config;
-use gpio_handler::GpioHandler;
+use gpio_watcher::GpioWatcher;
 
 
 
@@ -25,12 +25,11 @@ fn main()
     println!("{:?}", config);
 
     //mqtt::mqtt_start(config);
-    let gpio = GpioHandler::start(&config);
-
+    let mut gpio_watcher = GpioWatcher::start(&config, pin_changed);
 
     // ...
 
-    gpio.stop();
+    gpio_watcher.stop();
 }
 
 
@@ -66,4 +65,11 @@ fn load_config(args: &Args) -> Config
             std::process::exit(1);
         }
     }
+}
+
+
+fn pin_changed(pin: u8, level: gpio_watcher::GpioPinLevel)
+{
+    println!("Pin {} changed to {:?}", pin, level);
+    // TODO send to MQTT module
 }
