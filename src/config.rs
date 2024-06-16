@@ -15,6 +15,10 @@ pub struct Config
     pub mqtt: ConfigMqtt,
     pub device_name: String,
     pub client_id: String,
+
+    #[serde(default = "Config::default_discovery_prefix")]
+    pub discovery_prefix: String,
+
     pub gpio: Vec<ConfigGpio>
 }
 
@@ -23,7 +27,9 @@ pub struct Config
 pub struct ConfigMqtt
 {
     pub hostname: String,
-    pub port: u16
+    pub port: u16,
+    pub username: String,
+    pub password: String
 }
 
 
@@ -72,5 +78,11 @@ impl Config
 
             Err(e) => Err(Error { message: e.to_string() })
         }
+    }
+
+
+    pub fn default_discovery_prefix() -> String
+    {
+        String::from("homeassistant")
     }
 }

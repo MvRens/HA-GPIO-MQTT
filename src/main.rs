@@ -1,14 +1,18 @@
 mod config;
 mod gpio_watcher;
+mod ha_mqtt;
 
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 use clap::Parser;
 use env_logger::Env;
 
 use config::Config;
-use gpio_watcher::GpioWatcher;
+use gpio_watcher::{GpioPinLevel, GpioWatcher};
+use ha_mqtt::HaMqtt;
 
 
 
@@ -22,6 +26,18 @@ struct Args {
 
 fn main() 
 {
+    let terminated = Arc::new(AtomicBool::new(false));
+    let terminated_ctrlc = terminated.clone();
+
+    ctrlc::set_handler(move || 
+    {
+        terminated_ctrlc.store(true, Ordering::Relaxed);
+    })
+        .expect("Error setting Ctrl-C handler");
+
+    let _ = signal_hook::flag::register(signal_hook::consts::SIGTERM, Arc::clone(&terminated));    
+
+
     env_logger::Builder::from_env(Env::default().default_filter_or("info"))
             .format_timestamp(None)
             .init();
@@ -31,32 +47,32 @@ fn main()
 
     println!("{:?}", config);
 
-    //mqtt::mqtt_start(config);
+    let mut mqtt = HaMqtt::start(&config);
     let mut gpio_watcher = GpioWatcher::start(&config);
 
-    // TODO monitor for signals to stop service
 
-    while match gpio_watcher.poll()
+
+    while !terminated.load(Ordering::Relaxed) 
     {
-        gpio_watcher::GpioPollResult::None =>
+        match gpio_watcher.poll()
         {
-            thread::sleep(Duration::from_millis(10));
-            true
-        },
+            gpio_watcher::GpioPollResult::None =>
+            {
+                thread::sleep(Duration::from_millis(10));
+            },
 
-        gpio_watcher::GpioPollResult::PinChanged(pin, level) =>
-        {
-            println!("Pin {} changed to {:?}", pin, level);
-            // TODO send to MQTT module
+            gpio_watcher::GpioPollResult::PinChanged(pin, level) =>
+            {
+                log::debug!("Pin {} changed to {:?}", pin, level);
+                mqtt.pin_changed(pin, matches!(level, GpioPinLevel::High));
+            },
 
-            true
-        },
-
-        gpio_watcher::GpioPollResult::Stopped => false
-    } {}
-    // ...
+            gpio_watcher::GpioPollResult::Stopped => break
+        }
+    }
 
     gpio_watcher.stop();
+    mqtt.stop();
 }
 
 

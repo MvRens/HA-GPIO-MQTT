@@ -152,7 +152,7 @@ impl GpioWatcher
                         break;
                     },
 
-                    _ => {}
+                    Err(TryRecvError::Empty) => {}
                 }
 
 
