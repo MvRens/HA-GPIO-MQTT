@@ -13,12 +13,7 @@ pub struct Error
 pub struct Config
 {
     pub mqtt: ConfigMqtt,
-    pub device_name: String,
-    pub client_id: String,
-
-    #[serde(default = "Config::default_discovery_prefix")]
-    pub discovery_prefix: String,
-
+    pub homeassistant: ConfigHomeAssistant,
     pub gpio: Vec<ConfigGpio>
 }
 
@@ -29,15 +24,33 @@ pub struct ConfigMqtt
     pub hostname: String,
     pub port: u16,
     pub username: String,
-    pub password: String
+    pub password: String,
+    pub client_id: String
 }
 
+
+#[derive(Deserialize, Debug)]
+pub struct ConfigHomeAssistant
+{
+    #[serde(default = "ConfigHomeAssistant::default_discovery_prefix")]
+    pub discovery_prefix: String,
+
+    #[serde(default = "ConfigHomeAssistant::default_birth_topic")]
+    pub birth_topic: String,
+
+    #[serde(default = "ConfigHomeAssistant::default_state_prefix")]
+    pub state_prefix: String,
+
+    pub device_name: String
+}
 
 #[derive(Deserialize, Debug)]
 pub struct ConfigGpio
 {
     pub entity_id: String,
     pub name: String,
+    pub device_class: Option<String>,
+
     pub pin: u8,
     pub inverted: bool,
 
@@ -79,10 +92,12 @@ impl Config
             Err(e) => Err(Error { message: e.to_string() })
         }
     }
+}
 
 
-    pub fn default_discovery_prefix() -> String
-    {
-        String::from("homeassistant")
-    }
+impl ConfigHomeAssistant
+{
+    pub fn default_discovery_prefix() -> String { String::from("homeassistant") }
+    pub fn default_state_prefix() -> String { String::from("gpio") }
+    pub fn default_birth_topic() -> String { String::from("homeassistant/status") }
 }
