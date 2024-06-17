@@ -45,8 +45,6 @@ fn main()
     let args = Args::parse();
     let config = load_config(&args);
 
-    println!("{:?}", config);
-
     let mut mqtt = HaMqtt::start(&config);
     let mut gpio_watcher = GpioWatcher::start(&config);
 
