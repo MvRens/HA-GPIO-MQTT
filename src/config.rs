@@ -70,7 +70,7 @@ pub enum ConfigGpioPull
 
 impl ConfigGpioPull
 {
-    fn default() -> Self { Self::None }
+    fn default() -> Self { Self::Up }
 }
 
 

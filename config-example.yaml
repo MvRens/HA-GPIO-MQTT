@@ -15,4 +15,4 @@ gpio:
     device_class: motion
     pin: 4
     inverted: true
-    pull: None # Default 'None'
+    pull: Up # Default 'Up', compatible with the Remote GPIO integration

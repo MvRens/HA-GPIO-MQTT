@@ -104,6 +104,8 @@ impl HaMqtt
 
                         Event::Incoming(Incoming::ConnAck(_)) =>
                         {
+                            // TODO when connecting to MQTT remotely, I keep getting COnnAck messages. are we actually being disconnected??
+
                             if is_reconnect.swap(true, Ordering::Relaxed)
                             {
                                 log::info!("Connection to MQTT re-established, resending configuration");
@@ -138,6 +140,8 @@ impl HaMqtt
                     },
 
                     HaMqttControlMessage::ResendConfig =>
+                        // TODO either keep track of the states, or ask the GPIO again somehow,
+                        // because entities are now unavailable until a restart 
                         send_config_messages(&client, &pin_map, &discovery_prefix, &state_prefix, &device_name),
 
                     HaMqttControlMessage::Stop =>

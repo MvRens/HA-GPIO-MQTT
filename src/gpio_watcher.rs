@@ -221,6 +221,7 @@ impl GpioWatcher
 
 fn get_pin_level(level: rppal::gpio::Level, inverted: bool) -> GpioPinLevel
 {
+    // TODO is this required, or does the pullup already handle this?? seems that way.
     if inverted
     {
         match level
