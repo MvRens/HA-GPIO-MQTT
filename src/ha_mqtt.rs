@@ -109,6 +109,10 @@ impl HaMqtt
                                 log::info!("Connection to MQTT re-established, resending configuration");
                                 let _ = control_sender_eventloop.send(HaMqttControlMessage::ResendConfig);
                             }
+                            else
+                            {
+                                log::info!("Connected to MQTT");
+                            }
                         },
 
                         _ => {}
@@ -129,17 +133,7 @@ impl HaMqtt
                     {
                         if let Some(pin_info) = pin_map.get(&pin)
                         {
-                            let topic = format!("{}/binary_sensor/{}/{}/state", state_prefix, device_name, pin_info.entity_id);
-                            let payload = match on
-                            {
-                                true => "ON",
-                                false => "OFF"
-                            };
-    
-                            if let Err(e) = client.publish(topic, rumqttc::QoS::AtLeastOnce, false, payload)
-                            {
-                                log::error!("Failed to publish status message for pin {}: {}", pin, e);
-                            }
+                            send_status_message(&client, pin, pin_info, on, &state_prefix, &device_name);
                         }
                     },
 
@@ -200,5 +194,25 @@ fn send_config_messages(client: &Client, pin_map: &HashMap<u8, HaMqttPinInfo>, d
                 log::error!("Failed to publish discovery message for pin {}: {}", pin, e);
             };
         }
+    }
+}
+
+
+fn send_status_message(client: &Client, pin: u8, pin_info: &HaMqttPinInfo, on: bool, state_prefix: &str, device_name: &str)
+{
+    let topic = format!("{}/binary_sensor/{}/{}/state", state_prefix, device_name, pin_info.entity_id);
+    let payload = match on
+    {
+        true => "ON",
+        false => "OFF"
+    };
+
+    if let Err(e) = client.publish(topic, rumqttc::QoS::AtLeastOnce, false, payload)
+    {
+        log::error!("Failed to publish status message for pin {}: {}", pin, e);
+    }
+    else
+    {
+        log::debug!("Published status message for pin {}: {}", pin, payload);
     }
 }

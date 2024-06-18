@@ -141,6 +141,16 @@ impl GpioWatcher
                 .collect::<Vec<&InputPin>>();
 
 
+            // Output initial state as change events
+            for (pin, info) in pin_map.iter()
+            {
+                let GpioPinState::Input(input_pin) = &info.state else { continue }; 
+                let level = input_pin.read();
+                
+                send_pin_changed(&status_sender, *pin, level, &info);
+            }
+
+
             #[allow(while_true)]
             while true
             {
@@ -166,12 +176,7 @@ impl GpioWatcher
 
                             if let Some(pin_info) = pin_map.get(&number)
                             {
-                                let level = get_pin_level(level, pin_info.inverted);
-
-                                if let Err(e) = status_sender.send(GpioStatusMessage::PinChanged(number, level))
-                                {
-                                    log::error!("Failed to send status message: {}", e);
-                                }
+                                send_pin_changed(&status_sender, number, level, pin_info);
                             }
                         },
 
@@ -231,5 +236,16 @@ fn get_pin_level(level: rppal::gpio::Level, inverted: bool) -> GpioPinLevel
             rppal::gpio::Level::Low => GpioPinLevel::Low,
             rppal::gpio::Level::High => GpioPinLevel::High
         }        
+    }
+}
+
+
+fn send_pin_changed(status_sender: &Sender<GpioStatusMessage>, pin: u8, level: rppal::gpio::Level, pin_info: &GpioPinInfo)
+{
+    let level = get_pin_level(level, pin_info.inverted);
+
+    if let Err(e) = status_sender.send(GpioStatusMessage::PinChanged(pin, level))
+    {
+        log::error!("Failed to send status message: {}", e);
     }
 }
