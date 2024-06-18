@@ -75,6 +75,7 @@ impl HaMqtt
         let worker = Some(thread::spawn(move ||  
         {
             let (client, mut connection) = Client::new(mqtt_options, 10);
+            let is_first_connect = Arc::new(AtomicBool::new(true));
             let is_reconnect = Arc::new(AtomicBool::new(false));
 
             if let Err(e) = client.subscribe(birth_topic, QoS::AtLeastOnce)
@@ -117,7 +118,7 @@ impl HaMqtt
                                 log::info!("Connection to MQTT re-established, resending configuration");
                                 let _ = control_sender_eventloop.send(HaMqttControlMessage::ResendConfig);
                             }
-                            else
+                            else if is_first_connect.swap(false, Ordering::Relaxed)
                             {
                                 log::info!("Connected to MQTT");
                             }
