@@ -17,7 +17,40 @@ After installing rust add support for the target ```armv7-unknown-linux-musleabi
 I'm still interested in getting cross-compilation to work properly, so it's easier to get projects like these in a CI build. If anyone knows what I did wrong, let me know!
 
 ## Configuring
-TODO
+By default the configuration file is expected to be at ```/etc/ha-gpio-mqtt.yaml```. You can specify a different file either by passing the ```-c <filename>``` or ```--config <filename>``` parameter, or setting the ```HAGPIOMQTT_CONFIG``` environment variable.
 
-## Installing as a service
-TODO
+Take a look at config-example.yaml for the available options.
+
+
+## Installing as a systemd service
+Create a file ```/etc/systemd/system/ha-gpio-mqtt.service``` with the following contents (change where required):
+
+```ini
+[Unit]
+Description=HomeAssistant GPIO to MQTT
+After=network.target
+ 
+[Service]
+Type=simple
+User=pi
+Restart=on-failure
+RestartSec=10
+
+ExecStart=/home/pi/ha-gpio-mqtt/target/release/ha-gpio-mqtt
+
+PermissionsStartOnly=true
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=ha-gpio-mqtt
+ 
+[Install]
+WantedBy=multi-user.target
+```
+
+Install and start the service, then check if it is running correctly.
+
+```bash
+sudo systemctl enable ha-gpio-mqtt
+sudo systemctl start ha-gpio-mqtt
+sudo systemctl status ha-gpio-mqtt
+```
