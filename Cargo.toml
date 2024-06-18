@@ -1,0 +1,16 @@
+[package]
+name = "ha-gpio-mqtt"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4.5.7", features = ["derive"] }
+ctrlc = "3.4.4"
+env_logger = "0.11.3"
+log = "0.4.21"
+rppal = "0.18.0"
+rumqttc = { version = "0.24.0", default-features = false }
+serde = { version = "1.0.203", features = ["derive"] }
+serde_json = "1.0.117"
+serde_yaml = "0.9.34"
+signal-hook = "0.3.17"

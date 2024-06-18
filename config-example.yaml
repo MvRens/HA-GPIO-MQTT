@@ -1,0 +1,18 @@
+mqtt:
+  hostname: 127.0.0.1
+  port: 1883
+  username: username
+  password: password
+  client_id: raspberrypi
+homeassistant:
+  discovery_prefix: homeassistant # Default 'homeassistant', see https://www.home-assistant.io/integrations/mqtt/#mqtt-discovery
+  birth_topic: homeassistant/status # Default 'homeassistant/status', see https://www.home-assistant.io/integrations/mqtt/#birth-and-last-will-messages
+  state_prefix: gpio # Default 'gpio'
+  device_name: raspberrypi
+gpio:
+  - entity_id: example_pir
+    name: Example PIR
+    device_class: motion
+    pin: 4
+    inverted: true
+    pull: Up # Default 'Up', compatible with the Remote GPIO integration
