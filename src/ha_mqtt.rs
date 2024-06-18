@@ -70,6 +70,8 @@ impl HaMqtt
 
         let control_sender_eventloop = control_sender.clone();
 
+        let mut stored_pin_states: HashMap<u8, bool> = HashMap::new();
+
         let worker = Some(thread::spawn(move ||  
         {
             let (client, mut connection) = Client::new(mqtt_options, 10);
@@ -102,11 +104,15 @@ impl HaMqtt
                             }
                         },
 
+                        Event::Incoming(Incoming::Disconnect) =>
+                        {
+                            log::info!("Disconnected from MQTT");
+                            is_reconnect.swap(true, Ordering::Relaxed);
+                        },
+
                         Event::Incoming(Incoming::ConnAck(_)) =>
                         {
-                            // TODO when connecting to MQTT remotely, I keep getting COnnAck messages. are we actually being disconnected??
-
-                            if is_reconnect.swap(true, Ordering::Relaxed)
+                            if is_reconnect.swap(false, Ordering::Relaxed)
                             {
                                 log::info!("Connection to MQTT re-established, resending configuration");
                                 let _ = control_sender_eventloop.send(HaMqttControlMessage::ResendConfig);
@@ -126,7 +132,6 @@ impl HaMqtt
             send_config_messages(&client, &pin_map, &discovery_prefix, &state_prefix, &device_name);
 
 
-            #[allow(while_true)]
             while let Ok(m) = control_receiver.recv()
             {
                 match m
@@ -135,14 +140,21 @@ impl HaMqtt
                     {
                         if let Some(pin_info) = pin_map.get(&pin)
                         {
+                            stored_pin_states.insert(pin, on);
                             send_status_message(&client, pin, pin_info, on, &state_prefix, &device_name);
                         }
                     },
 
                     HaMqttControlMessage::ResendConfig =>
-                        // TODO either keep track of the states, or ask the GPIO again somehow,
-                        // because entities are now unavailable until a restart 
-                        send_config_messages(&client, &pin_map, &discovery_prefix, &state_prefix, &device_name),
+                    {
+                        send_config_messages(&client, &pin_map, &discovery_prefix, &state_prefix, &device_name);
+
+                        for (pin, on) in stored_pin_states.iter()
+                        {
+                            let Some(pin_info) = pin_map.get(&pin) else { continue };
+                            send_status_message(&client, *pin, pin_info, *on, &state_prefix, &device_name);
+                        }
+                    },
 
                     HaMqttControlMessage::Stop =>
                         break

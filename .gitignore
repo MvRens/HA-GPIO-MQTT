@@ -14,4 +14,5 @@ Cargo.lock
 *.pdb
 
 /target
+/config.yaml
 /deploy.sh
